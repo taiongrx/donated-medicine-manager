@@ -1,4 +1,4 @@
-﻿﻿# UTF-8 with BOM
+﻿# UTF-8 with BOM
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "ตั้งค่าการเชื่อมต่อ HOSxP - Donated Medicine Manager"

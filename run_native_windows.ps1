@@ -1,4 +1,4 @@
-﻿﻿# UTF-8 with BOM
+﻿# UTF-8 with BOM
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "ระบบบริหารจัดการคลังยาบริจาค - Donated Medicine Manager (Native Mode)"
