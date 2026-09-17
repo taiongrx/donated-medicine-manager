@@ -103,5 +103,24 @@ sudo systemctl start donated-medicine.service
 
 ---
 
+## 🛡️ มาตรฐานความต่อเนื่องและการบริหารความเสี่ยง (BCP, DRP & Version Control)
+
+ระบบได้รับการออกแบบตามมาตรฐานคุณภาพโรงพยาบาล (HA ฉบับที่ 6: มาตรฐานหมวดสารสนเทศและระบบยา II-4, II-5) โดยมีเอกสารและสคริปต์รองรับภาวะฉุกเฉินครบถ้วน:
+
+1. **[แผนบริหารความต่อเนื่องในการดำเนินงาน (BCP Plan)](docs/BCP_BUSINESS_CONTINUITY_PLAN.md)**:
+   - กลไกการสลับเข้าสู่โหมด **Offline Fallback** เมื่อสายแลนขาดหรือเซิร์ฟเวอร์ HOSxP ชะลอตัว
+   - ขั้นตอนการใช้ **Emergency Manual Voucher** สำหรับหน้าต่างจ่ายยาเมื่อไฟฟ้าดับฉุกเฉิน
+2. **[แผนกู้คืนระบบจากภัยพิบัติ (DRP Plan)](docs/DRP_DISASTER_RECOVERY_PLAN.md)**:
+   - กำหนดเป้าหมาย **RPO < 1 ชั่วโมง** และ **RTO < 15 นาที**
+   - กลยุทธ์การสำรองข้อมูลแบบ 3-2-1 และรอบการซักซ้อมกู้ระบบทุก 6 เดือน
+   - สคริปต์สำรองข้อมูล: `scripts/backup_database.sh` (Linux) / `scripts/backup_database.bat` (Windows)
+   - สคริปต์กู้คืนข้อมูล: `scripts/restore_database.sh` (Linux) / `scripts/restore_database.bat` (Windows)
+3. **[แผนบริหารจัดการเวอร์ชันและการเปลี่ยนแปลง (Version Control Plan)](docs/VERSION_CONTROL_PLAN.md)**:
+   - การบริหารหมายเลขเวอร์ชันตาม Semantic Versioning 2.0.0
+   - นโยบายความปลอดภัยฐานข้อมูล Expand-and-Contract และขั้นตอน Rollback ฉุกเฉินใน 3 นาที
+   - ดูประวัติการเปลี่ยนแปลงทั้งหมดได้ที่ [CHANGELOG.md](CHANGELOG.md)
+
+---
+
 ## 📄 ลิขสิทธิ์และการพัฒนา
 พัฒนาโดยทีมเภสัชกรรมและสารสนเทศ โรงพยาบาลสมเด็จพระยุพราชสายบุรี จังหวัดปัตตานี
