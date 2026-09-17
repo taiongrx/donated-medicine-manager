@@ -71,7 +71,7 @@ sudo systemctl start donated-medicine.service
 
 ---
 
-### 🪟 วิธีที่ 2: การติดตั้งบน Windows Server / Windows PC (ห้องยานอก)
+### 🪟 วิธีที่ 2: การติดตั้งผ่าน Docker Desktop (Windows Server / PC)
 
 1. คลิกขวาที่ไฟล์ **`install.bat`** แล้วเลือก **"Run as administrator"** (หรือเปิด PowerShell แล้วรัน `.\install.ps1`)
 2. ตัวติดตั้งจะสอบถาม IP และข้อมูลการเชื่อมต่อ HOSxP MySQL (กด `Enter` เพื่อใช้ค่ามาตรฐาน)
@@ -80,6 +80,19 @@ sudo systemctl start donated-medicine.service
 **เปิดใช้งานและตั้งค่า Auto-start บน Windows**:
 - ดับเบิ้ลคลิก **`setup_autostart_and_firewall.bat`** เพื่อเปิดพอร์ต Firewall และสร้าง Startup Shortcut
 - หรือดับเบิ้ลคลิก **`start_service.bat`** เพื่อเปิดทำงานระบบ
+
+---
+
+### ⚡ วิธีที่ 3: รันแบบ Windows Native ทันที (ไม่ต้องใช้ Docker / ไม่ต้องเปิด BIOS Virtualization)
+
+> **เหมาะที่สุดสำหรับ**: คอมพิวเตอร์โรงพยาบาลที่ไม่ได้เปิด CPU Virtualization (VT-x / AMD-V) ใน BIOS หรือติดตั้ง Docker ไม่ผ่าน
+
+1. **ดับเบิ้ลคลิกไฟล์ `run_native_windows.bat`**:
+   - หากยังไม่มี Python บนเครื่อง ระบบจะพยายามติดตั้งให้ผ่าน winget อัตโนมัติ (หรือดาวน์โหลด Python 3.11 แล้วติ๊ก *Add python.exe to PATH*)
+   - ตัวสคริปต์จะติดตั้ง library ที่จำเป็น, สร้างไฟล์คอนฟิก, เชื่อมโยงฐานข้อมูล และเปิดหน้าเว็บให้ทันทีที่ `http://localhost:8000`
+2. **ตั้งค่าให้เปิดอัตโนมัติเมื่อเปิดเครื่อง (Auto-start)**:
+   - ดับเบิ้ลคลิกไฟล์ **`setup_autostart_native.bat`** เพื่อสร้างทางลัดรันพื้นหลัง (ซ่อนหน้าต่างดำ) ในโฟลเดอร์ Startup ของ Windows และเปิดพอร์ต 8000 ใน Windows Firewall
+
 
 ---
 

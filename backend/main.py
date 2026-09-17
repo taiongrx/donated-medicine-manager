@@ -836,3 +836,41 @@ def get_drug_brands(icode: str, db: Session = Depends(get_db)):
         models.DonatedInventory.brand_name != ""
     ).distinct().all()
     return [b[0] for b in brands]
+
+
+# =====================================================================
+# Standalone Native Mode: ให้ Backend เสิร์ฟหน้าเว็บ Frontend (dist) ทันที
+# ทำให้รันบน Windows ได้โดยตรง ไม่ต้องผ่าน Docker หรือ Nginx
+# =====================================================================
+import os
+from fastapi.staticfiles import StaticFiles
+
+dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+if os.path.exists(dist_path):
+    app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    import sys
+    import uvicorn
+
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    port = int(os.getenv("PORT", "80"))
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"============================================================")
+    print(f" Donated Medicine Manager is running!")
+    print(f" Access URL: http://localhost:{port}")
+    print(f"============================================================")
+    try:
+        uvicorn.run(app, host=host, port=port)
+    except OSError as e:
+        if port == 80:
+            fallback_port = 8000
+            print(f"Port 80 might require Administrator privileges or is in use. Falling back to port {fallback_port}...")
+            uvicorn.run(app, host=host, port=fallback_port)
+        else:
+            raise e
+

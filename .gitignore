@@ -13,7 +13,11 @@ __pycache__/
 env/
 venv/
 .venv/
-dist/
+/dist/
+build/
+*.egg-info/
+!frontend/dist/
+!frontend/dist/**
 
 # Databases & Local Data
 *.db
@@ -24,7 +28,6 @@ backups/
 
 # Frontend
 node_modules/
-frontend/dist/
 .npm
 
 # Logs & OS

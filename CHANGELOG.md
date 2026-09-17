@@ -4,6 +4,18 @@
 
 ---
 
+## [1.2.0] - 2026-09-17
+
+### Added
+- **Windows Native Mode (No-Docker / No-Virtualization)**:
+  - เพิ่มตัวรันระบบ Windows โดยตรง `run_native_windows.bat` แบบ 1-Click ไม่ต้องพึ่งพา Docker Desktop หรือเปิด Virtualization (VT-x/AMD-V) ใน BIOS
+  - เชื่อมโยง Pre-built React Frontend (`frontend/dist`) เข้ากับ FastAPI Backend โดยตรงผ่าน `StaticFiles` เสิร์ฟทั้งเว็บ UI และ API บนพอร์ตเดียวกัน (Port 8000)
+  - นำไฟล์ Build ผลลัพธ์ของ Frontend เข้าสู่ Version Control (Git) เพื่อให้เครื่อง PC ในโรงพยาบาลรันระบบได้ทันทีโดยไม่ต้องติดตั้ง Node.js หรือ npm
+  - เพิ่มสคริปต์เปิดทำงานอัตโนมัติเมื่อเปิดเครื่อง `setup_autostart_native.bat` และ `run_silent.vbs` ซ่อนหน้าต่างดำค้าง
+  - รองรับ Python ย้อนหลัง (Python 3.9/3.10) ด้วย `tomli` Fallback ใน `backend/database.py`
+
+---
+
 ## [1.1.0] - 2026-09-17
 
 ### Added

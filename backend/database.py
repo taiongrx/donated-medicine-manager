@@ -1,5 +1,11 @@
 import os
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
