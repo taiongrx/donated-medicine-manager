@@ -219,11 +219,24 @@ Write-Host ""
 Write-Host "[5/5] กำลังเตรียมฐานข้อมูลและเริ่มระบบ..." -ForegroundColor White
 & $venvPython -m backend.init_db
 
+# ค้นหา IP Address ในเครือข่าย
+$ipList = @()
+try {
+    $ipList = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | 
+               Where-Object { $_.InterfaceAlias -notmatch "Loopback|vEthernet|WSL" -and $_.IPAddress -notmatch "^169\.254\." -and $_.IPAddress -ne "127.0.0.1" }).IPAddress
+} catch {}
+
 Write-Host ""
 Write-Host "==============================================================================" -ForegroundColor Green
-Write-Host "  ระบบพร้อมเปิดใช้งานแล้ว!" -ForegroundColor Cyan
-Write-Host "  URL สำหรับใช้งาน: http://localhost:$port" -ForegroundColor Yellow
-Write-Host "  (เครื่องอื่นในเครือข่าย รพ. สามารถเข้าผ่าน http://[IP-เครื่องนี้]:$port)" -ForegroundColor White
+Write-Host "  ระบบพร้อมเปิดใช้งานบนเครือข่ายแล้ว!" -ForegroundColor Cyan
+Write-Host "  URL สำหรับเครื่องนี้: http://localhost:$port" -ForegroundColor Yellow
+if ($ipList) {
+    foreach ($ip in $ipList) {
+        Write-Host "  👉 URL สำหรับเครื่องอื่นในเครือข่าย รพ.: http://${ip}:${port}" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  (เครื่องอื่นในเครือข่าย รพ. สามารถเข้าผ่าน http://[IP-เครื่องนี้]:$port)" -ForegroundColor White
+}
 Write-Host "==============================================================================" -ForegroundColor Green
 Write-Host ""
 
