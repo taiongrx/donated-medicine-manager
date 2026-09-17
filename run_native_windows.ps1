@@ -1,4 +1,4 @@
-﻿# UTF-8 with BOM
+﻿﻿# UTF-8 with BOM
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "ระบบบริหารจัดการคลังยาบริจาค - Donated Medicine Manager (Native Mode)"
@@ -12,49 +12,96 @@ Write-Host ""
 
 Set-Location -Path $PSScriptRoot
 
+# ฟังก์ชันตรวจสอบว่าคำสั่งเป็น Python ตัวจริง ไม่ใช่ Alias ของ Microsoft Store
+function Test-RealPython($exePath) {
+    if (-not $exePath) { return $false }
+    try {
+        $ver = & $exePath -c "import sys; print(sys.version_info[0])" 2>$null
+        if ($LASTEXITCODE -eq 0 -and "$ver".Trim() -eq "3") {
+            return $true
+        }
+    } catch {}
+    return $false
+}
+
 # 1. ตรวจสอบ Python
 Write-Host "[1/5] กำลังตรวจสอบ Python บนเครื่อง..." -ForegroundColor White
-$pythonCmd = $null
 
-if (Get-Command python -ErrorAction SilentlyContinue) {
-    $pythonCmd = "python"
-} elseif (Get-Command py -ErrorAction SilentlyContinue) {
-    $pythonCmd = "py"
+$pythonCmd = $null
+$candidatePaths = @(
+    "python",
+    "py",
+    "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
+    "C:\Program Files\Python311\python.exe",
+    "C:\Program Files\Python312\python.exe",
+    "C:\Program Files\Python310\python.exe"
+)
+
+foreach ($cand in $candidatePaths) {
+    if (Test-RealPython $cand) {
+        $pythonCmd = $cand
+        break
+    }
 }
 
 if (-not $pythonCmd) {
-    Write-Host "[!] ตรวจไม่พบ Python ในระบบ!" -ForegroundColor Yellow
-    Write-Host "[*] กำลังพยายามติดตั้ง Python 3.11 ผ่าน winget..." -ForegroundColor White
+    Write-Host "[!] ไม่พบ Python ตัวจริงบนเครื่อง (หรือพบเฉพาะทางลัด Microsoft Store)" -ForegroundColor Yellow
+    Write-Host "[*] กำลังดาวน์โหลดตัวติดตั้ง Python 3.11 จาก python.org อัตโนมัติ..." -ForegroundColor Cyan
+    
+    $installerUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+    $installerPath = "$env:TEMP\python-3.11.9-amd64.exe"
+    
     try {
-        winget install Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Write-Host "    กำลังดาวน์โหลด: $installerUrl" -ForegroundColor Gray
+        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
+        
+        Write-Host "[*] กำลังติดตั้ง Python 3.11 (เปิดหน้าต่างติดตั้งอัตโนมัติ กรุณารอสักครู่)..." -ForegroundColor Yellow
+        Start-Process -FilePath $installerPath -ArgumentList "/passive", "PrependPath=1", "Include_pip=1" -Wait
+        
+        # อัปเดต PATH ในเซสชันปัจจุบัน
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-        if (Get-Command python -ErrorAction SilentlyContinue) {
-            $pythonCmd = "python"
+        
+        foreach ($cand in $candidatePaths) {
+            if (Test-RealPython $cand) {
+                $pythonCmd = $cand
+                break
+            }
         }
-    } catch {}
+    } catch {
+        Write-Host "[!] ดาวน์โหลดอัตโนมัติไม่สำเร็จ: $_" -ForegroundColor Red
+    }
 
     if (-not $pythonCmd) {
-        Write-Host "[X] ไม่สามารถติดตั้ง Python อัตโนมัติได้" -ForegroundColor Red
         Write-Host ""
-        Write-Host "คำแนะนำในการติดตั้ง Python:" -ForegroundColor Yellow
-        Write-Host "1. เข้าเว็บไซต์ https://www.python.org/downloads/" -ForegroundColor White
-        Write-Host "2. ดาวน์โหลดและติดตั้ง Python 3.11 (หรือ 3.10 / 3.12)" -ForegroundColor White
-        Write-Host "3. สำคัญมาก: ตอนเริ่มติดตั้ง ให้ติ๊กถูกที่ช่อง [Add python.exe to PATH]" -ForegroundColor Yellow
-        Write-Host "4. เมื่อติดตั้งเสร็จแล้ว ให้เปิดรันคำสั่งใหม่อีกครั้ง" -ForegroundColor White
-        Start-Process "https://www.python.org/downloads/"
-        Read-Host "กด Enter เพื่อปิดหน้าต่างนี้..."
+        Write-Host "==============================================================================" -ForegroundColor Red
+        Write-Host "  กรุณาติดตั้ง Python 3.11 ด้วยตนเอง:" -ForegroundColor Yellow
+        Write-Host "  1. ตัวติดตั้งถูกโหลดไว้ที่: $installerPath" -ForegroundColor White
+        Write-Host "  2. หากยังไม่มี ให้เปิดเว็บ https://www.python.org/downloads/" -ForegroundColor White
+        Write-Host "  3. สำคัญที่สุด: ในหน้าแรกของตัวติดตั้ง ให้ติ๊กถูก [Add python.exe to PATH]" -ForegroundColor Yellow
+        Write-Host "  4. ติดตั้งเสร็จแล้ว ให้รัน run_native_windows.bat ใหม่อีกครั้ง" -ForegroundColor White
+        Write-Host "==============================================================================" -ForegroundColor Red
+        Write-Host ""
+        if (Test-Path $installerPath) {
+            Start-Process $installerPath
+        } else {
+            Start-Process "https://www.python.org/downloads/"
+        }
+        Read-Host "กด Enter เมื่อติดตั้งเสร็จสิ้นเพื่อดำเนินการต่อ..."
         exit 1
     }
 }
 
 $pyVer = & $pythonCmd --version 2>&1
-Write-Host "[OK] พบ Python ในระบบ: $pyVer" -ForegroundColor Green
+Write-Host "[OK] พบ Python ในระบบ: $pyVer ($pythonCmd)" -ForegroundColor Green
 Write-Host ""
 
 # 2. Virtual Environment (.venv)
 Write-Host "[2/5] กำลังเตรียมสภาพแวดล้อม Virtual Environment (.venv)..." -ForegroundColor White
 $venvPython = ""
-if (-not (Test-Path ".venv")) {
+if (-not (Test-Path ".venv\Scripts\python.exe")) {
     Write-Host "[*] กำลังสร้าง .venv..." -ForegroundColor Gray
     & $pythonCmd -m venv .venv
 }
