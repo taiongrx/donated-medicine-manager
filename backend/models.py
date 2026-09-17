@@ -128,6 +128,22 @@ class ConsentItem(Base):
     item_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     consent_code = Column(String(20), index=True)  # ผูกกับ print_reference_code ของ PatientConsent
     icode = Column(String(20), index=True)
+    drug_name = Column(String(150), nullable=True)
+    units = Column(String(50), nullable=True)
     quantity = Column(Integer)
+
+
+class HOSxPOpitemrece(Base):
+    """ตารางประวัติการสั่งยา/ค่ารักษาพยาบาลเดิมของ HOSxP (opitemrece)"""
+    __tablename__ = 'opitemrece'
+    
+    hos_guid = Column(String(38), primary_key=True)
+    hn = Column(String(20), index=True)
+    vn = Column(String(13), index=True, nullable=True)
+    vstdate = Column(Date, index=True, nullable=True)
+    icode = Column(String(7), index=True)
+    qty = Column(Float, default=1.0)
+    unitprice = Column(Float, default=0.0)
+
 
 

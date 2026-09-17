@@ -364,55 +364,88 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media print {
-  /* 1. กรณีพิมพ์สติ๊กเกอร์ยาความร้อน (8x5 ซม.) */
-  body:has(.print-sticker-container) * {
-    visibility: hidden;
+  /* ซ่อนส่วนประกอบหน้าจอ UI ปกติทั้งหมด ไม่ให้กินพื้นที่ความสูงในหน้าพิมพ์ */
+  .app-header,
+  main,
+  .tab-navigation,
+  header {
+    display: none !important;
   }
-  body:has(.print-sticker-container) .print-sticker-container,
-  body:has(.print-sticker-container) .print-sticker-container * {
-    visibility: visible;
+
+  body:has(.print-sticker-container) .app-container > *:not(.print-sticker-container),
+  body:has(.print-slip-container) .app-container > *:not(.print-slip-container) {
+    display: none !important;
   }
+
+  .app-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* 1. สติ๊กเกอร์ยาความร้อน 80x50 มม. (กระดาษม้วนความร้อน) */
+  @page {
+    margin: 0;
+  }
+
+  body:has(.print-sticker-container) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   body:has(.print-sticker-container) .print-sticker-container {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    height: 50mm;
-    padding: 3mm 4mm;
-    box-sizing: border-box;
-    font-family: 'Sarabun', sans-serif;
-    color: #000000;
-    background: #FFFFFF;
-    border: none;
+    position: relative !important;
+    width: 80mm !important;
+    height: 50mm !important;
+    max-height: 50mm !important;
+    padding: 2.5mm 3.5mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    page-break-inside: avoid !important;
+    font-family: 'Sarabun', sans-serif !important;
+    color: #000000 !important;
+    background: #FFFFFF !important;
+    border: none !important;
   }
 
   .sticker-header {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     text-align: center;
     border-bottom: 0.5px solid #000000;
-    padding-bottom: 2px;
-    margin-bottom: 3px;
+    padding-bottom: 1px;
+    margin-bottom: 2px;
   }
 
   .sticker-meta {
     display: flex;
     justify-content: space-between;
     font-size: 8px;
-    margin-bottom: 2px;
+    margin-bottom: 1.5px;
   }
 
   .sticker-body {
-    font-size: 8px;
-    line-height: 1.25;
-    margin-bottom: 4px;
+    font-size: 7.5px;
+    line-height: 1.2;
+    margin-bottom: 2px;
     text-align: justify;
   }
 
   .sticker-sign {
-    margin-top: 5px;
-    font-size: 8px;
+    margin-top: 3px;
+    font-size: 7.5px;
     text-align: right;
     display: flex;
     justify-content: flex-end;
@@ -420,24 +453,23 @@ h1, h2, h3, h4, h5, h6 {
     gap: 2px;
   }
 
-  /* 2. กรณีพิมพ์ใบเบิกและใบทำลายพัสดุ (กระดาษ A4) */
-  body:has(.print-slip-container) * {
-    visibility: hidden;
-  }
-  body:has(.print-slip-container) .print-slip-container,
-  body:has(.print-slip-container) .print-slip-container * {
-    visibility: visible;
-  }
+  /* 2. ใบเบิกและใบบันทึกขอทำลายพัสดุ (กระดาษ A4 เริ่มต้นที่หัวกระดาษเสมอ) */
   body:has(.print-slip-container) .print-slip-container {
     display: block !important;
-    width: 100%;
-    font-family: 'Sarabun', sans-serif;
-    color: #000000;
-    background: #FFFFFF;
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 15mm 15mm !important;
+    box-sizing: border-box !important;
+    font-family: 'Sarabun', sans-serif !important;
+    color: #000000 !important;
+    background: #FFFFFF !important;
   }
+
   body:has(.print-slip-container) .print-slip-container table {
     page-break-inside: auto;
   }
+
   body:has(.print-slip-container) .print-slip-container tr {
     page-break-inside: avoid;
   }

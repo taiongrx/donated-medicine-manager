@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # Automated Installer for Donated Medicine Manager (HOSxP Integration)
 # Sai Buri Crown Prince Hospital (Code: 10690)
 # Compatible with Windows Server / Windows 10 & 11 (PowerShell 5.1 and PS 7+)
@@ -54,21 +54,24 @@ try {
 
 # STEP 2: Collect Configuration
 Write-Step "2/8 HOSxP Database Configuration..."
-$inputHost = Read-Host "  HOSxP MySQL Host IP [Default: $HosxpHost]"
+$inputHost = Read-Host "  HOSxP MySQL Host IP"
 if ($inputHost -and $inputHost.Trim()) { $HosxpHost = $inputHost.Trim() }
 
-$inputPort = Read-Host "  HOSxP MySQL Port [Default: $HosxpPort]"
+$inputPort = Read-Host "  HOSxP MySQL Port"
 if ($inputPort -and $inputPort.Trim()) { $HosxpPort = $inputPort.Trim() }
 
-$inputUser = Read-Host "  HOSxP MySQL User [Default: $HosxpUser]"
+$inputUser = Read-Host "  HOSxP MySQL User"
 if ($inputUser -and $inputUser.Trim()) { $HosxpUser = $inputUser.Trim() }
 
 if (-not $HosxpPassword) {
-    $inputPass = Read-Host "  HOSxP MySQL Password for $HosxpUser [Default: sa]"
-    if ($inputPass) { $HosxpPassword = $inputPass } else { $HosxpPassword = "sa" }
+    $inputPass = Read-Host "  HOSxP MySQL Password for $HosxpUser" -AsSecureString
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($inputPass)
+    $HosxpPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+    if (-not $HosxpPassword) { $HosxpPassword = "sa" }
 }
 
-$inputDb = Read-Host "  Database Name [Default: $HosxpDb]"
+$inputDb = Read-Host "  Database Name"
 if ($inputDb -and $inputDb.Trim()) { $HosxpDb = $inputDb.Trim() }
 
 # STEP 3: Write .env

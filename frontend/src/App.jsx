@@ -85,13 +85,25 @@ function App() {
   ]
 
   useEffect(() => {
-    // 1. ตรวจสอบสถานะ Backend
-    fetch('/api/dashboard/summary')
-      .then(res => {
-        if (res.ok) setDbStatus('connected')
-        else setDbStatus('error')
+    // 1. ตรวจสอบสถานะ Backend & Database
+    fetch('/healthz')
+      .then(res => res.json())
+      .then(data => {
+        if (data.db_mode === 'local_sqlite_fallback') {
+          setDbStatus('offline_fallback')
+        } else {
+          setDbStatus('connected')
+        }
       })
-      .catch(() => setDbStatus('error'))
+      .catch(() => {
+        // ลอง fallback ไปดู dashboard/summary
+        fetch('/api/dashboard/summary')
+          .then(res => {
+            if (res.ok) setDbStatus('connected')
+            else setDbStatus('error')
+          })
+          .catch(() => setDbStatus('error'))
+      })
 
     // 2. ตรวจสอบสถานะ Login
     const savedUser = localStorage.getItem('current_user')
@@ -371,10 +383,18 @@ function App() {
         </div>
       </header>
 
+      {dbStatus === 'offline_fallback' && (
+        <div className="glossy-card" style={{ borderLeft: '4px solid var(--warning-color)', padding: '14px 18px', marginBottom: '20px', background: 'rgba(255, 149, 0, 0.06)' }}>
+          <p style={{ color: 'var(--warning-color)', fontWeight: 600, fontSize: '13px' }}>
+            💡 โหมดสำรองออฟไลน์ (Offline BCP Mode): ขณะนี้ระบบทำงานบนฐานข้อมูลในเครื่อง (Local Storage) ข้อมูลถูกบันทึกอย่างปลอดภัย และพร้อมจ่ายยาตามปกติ
+          </p>
+        </div>
+      )}
+
       {dbStatus === 'error' && (
         <div className="glossy-card" style={{ borderLeft: '4px solid var(--danger-color)', padding: '16px', marginBottom: '20px' }}>
           <p style={{ color: 'var(--danger-color)', fontWeight: 600, fontSize: '14px' }}>
-            ⚠️ ไม่สามารถเชื่อมต่อกับ Python Backend / HOSxP Database ได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์ Backend รันอยู่บนพอร์ต 8000 หรือไม่
+            ⚠️ ไม่สามารถเชื่อมต่อกับ Python Backend ได้ กรุณาตรวจสอบว่าหน้าต่างรันระบบยังเปิดอยู่
           </p>
         </div>
       )}

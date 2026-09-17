@@ -43,30 +43,38 @@ if not DATABASE_URL:
     DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://sa:sa@192.168.0.251:3306/hos")
 
 
-# หากใช้ SQLite จะต้องมี argument check_same_thread=False
-connect_args = {}
-engine_kwargs = {}
+# Production Database Guard: Connection Pooling & Timeout rules
+is_mysql = DATABASE_URL.startswith("mysql")
+engine = None
+DB_MODE = "hosxp_mysql" if is_mysql else "local_sqlite"
 
-if DATABASE_URL.startswith("sqlite"):
+if is_mysql:
+    try:
+        # ทดสอบเชื่อมต่อ MySQL ด้วย timeout สั้น (3 วินาที)
+        test_kwargs = {
+            "pool_size": 10,
+            "max_overflow": 20,
+            "pool_recycle": 1800,
+            "pool_pre_ping": True,
+            "connect_args": {"connect_timeout": 3}
+        }
+        test_engine = create_engine(DATABASE_URL, **test_kwargs)
+        with test_engine.connect() as conn:
+            pass
+        engine = test_engine
+        DB_MODE = "hosxp_mysql"
+        print("[DB] เชื่อมต่อฐานข้อมูล HOSxP MySQL สำเร็จเรียบร้อย")
+    except Exception as err:
+        print(f"[DB WARN] ไม่สามารถติดต่อฐานข้อมูล HOSxP ได้ ({err}) -> สลับเข้าสู่โหมด Offline BCP (Local SQLite)...")
+        DB_MODE = "local_sqlite_fallback"
+
+if not engine:
+    os.makedirs("./data", exist_ok=True)
+    DATABASE_URL = "sqlite:///./data/donated_medicine_local.db"
     connect_args = {"check_same_thread": False}
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    db_dir = os.path.dirname(db_path)
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir, exist_ok=True)
-else:
-
-    # Production Database Guard: Connection Pooling & Timeout rules
-    engine_kwargs = {
-        "pool_size": 10,
-        "max_overflow": 20,
-        "pool_recycle": 1800,
-        "pool_pre_ping": True,
-    }
-
-engine = create_engine(
-    DATABASE_URL, connect_args=connect_args, **engine_kwargs
-)
-
+    engine = create_engine(DATABASE_URL, connect_args=connect_args)
+    if DB_MODE != "local_sqlite_fallback":
+        DB_MODE = "local_sqlite"
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

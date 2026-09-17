@@ -56,6 +56,20 @@ class OfficerResponse(BaseModel):
 class ConsentItemCreate(BaseModel):
     icode: str
     quantity: int
+    drug_name: Optional[str] = None
+    units: Optional[str] = "เม็ด"
+
+class PrescriptionItemResponse(BaseModel):
+    icode: str
+    drug_name: str
+    units: Optional[str] = "เม็ด"
+    qty: int
+    unitprice: Optional[float] = 0.0
+
+class PatientVisitPrescriptionResponse(BaseModel):
+    vstdate: str
+    vn: Optional[str] = None
+    items: List[PrescriptionItemResponse] = []
 
 class ConsentItemResponse(BaseModel):
     item_id: str

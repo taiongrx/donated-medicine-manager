@@ -58,7 +58,12 @@ async def unhandled_exception_handler(request, exc: Exception):
 @app.get("/healthz", status_code=200)
 def healthz():
     """Liveness probe สำหรับ Orchestrator เช็คสถานะตัว Service"""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat() + "Z"}
+    from .database import DB_MODE
+    return {
+        "status": "ok", 
+        "db_mode": DB_MODE,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 @app.get("/readyz", status_code=200)
 def readyz(db: Session = Depends(get_db)):
@@ -160,6 +165,57 @@ def get_patient_profile(hn: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ป่วยรายนี้ในระบบ HOSxP")
     return patient
 
+
+@app.get("/api/patients/{hn}/prescriptions", response_model=List[schemas.PatientVisitPrescriptionResponse])
+def get_patient_prescriptions(hn: str, db: Session = Depends(get_db)):
+    """ดึงประวัติรายการยาที่ผู้ป่วยได้รับใน Visit ล่าสุดจากตาราง opitemrece ของ HOSxP เพื่อให้เลือกเข้าถุงยาบริจาคได้ทันที"""
+    formatted_hn = format_hn(hn)
+    try:
+        query = db.query(
+            models.HOSxPOpitemrece.vstdate,
+            models.HOSxPOpitemrece.vn,
+            models.HOSxPOpitemrece.icode,
+            func.sum(models.HOSxPOpitemrece.qty).label("total_qty")
+        ).filter(
+            (models.HOSxPOpitemrece.hn == hn.strip()) | (models.HOSxPOpitemrece.hn == formatted_hn)
+        ).group_by(
+            models.HOSxPOpitemrece.vstdate,
+            models.HOSxPOpitemrece.vn,
+            models.HOSxPOpitemrece.icode
+        ).order_by(
+            models.HOSxPOpitemrece.vstdate.desc()
+        ).limit(100).all()
+        
+        visits_map = {}
+        for row in query:
+            v_key = f"{row.vstdate}_{row.vn or ''}"
+            if v_key not in visits_map:
+                visits_map[v_key] = {
+                    "vstdate": str(row.vstdate) if row.vstdate else "",
+                    "vn": row.vn or "",
+                    "items": []
+                }
+            
+            # ดึงชื่อยาจาก s_drugitems หรือ local
+            drug = db.query(models.HOSxPDrugItem).filter(models.HOSxPDrugItem.icode == row.icode).first()
+            if not drug:
+                drug = db.query(models.DonatedLocalDrugItem).filter(models.DonatedLocalDrugItem.icode == row.icode).first()
+            
+            if drug:
+                visits_map[v_key]["items"].append(schemas.PrescriptionItemResponse(
+                    icode=row.icode,
+                    drug_name=drug.name,
+                    units=drug.units or "เม็ด",
+                    qty=int(row.total_qty or 1),
+                    unitprice=drug.unitcost or 0.0
+                ))
+        
+        results = [schemas.PatientVisitPrescriptionResponse(**v) for v in visits_map.values() if v["items"]]
+        return results[:5]
+    except Exception as e:
+        logger.warning(f"Error fetching prescriptions for HN {hn}: {e}")
+        return []
+
 @app.get("/api/drugs", response_model=List[schemas.DrugItemResponse])
 def search_drugs(q: str = Query("", description="คำค้นหาชื่อยา"), db: Session = Depends(get_db)):
     """สืบค้นรายการยาและราคาพัสดุจากตาราง local หรือ HOSxP (s_drugitems) เพื่อให้คำค้นหาแนะนำยาได้ทันที"""
@@ -202,7 +258,23 @@ def format_consent_response(consent, db: Session):
     
     formatted_items = []
     for item in items:
+        # 1. ใช้ชื่อยาที่บันทึกไว้ใน ConsentItem เป็นหลักก่อน เพื่อป้องกันชื่อยาตัวแรกหาย
+        drug_name = item.drug_name
+        drug_units = item.units or "เม็ด"
+        drug_cost = 0.0
+
         drug = db.query(models.HOSxPDrugItem).filter(models.HOSxPDrugItem.icode == item.icode).first()
+        if not drug:
+            drug = db.query(models.DonatedLocalDrugItem).filter(models.DonatedLocalDrugItem.icode == item.icode).first()
+        
+        if drug:
+            if not drug_name:
+                drug_name = drug.name
+            drug_units = drug.units or drug_units
+            drug_cost = drug.unitcost or 0.0
+        
+        if not drug_name:
+            drug_name = f"เวชภัณฑ์รหัส {item.icode}"
         
         # ดึงล็อตล่าสุดที่คีย์สำเร็จเข้าคลังบริจาคมาพรีเซ็ตอัตโนมัติ (Lean Step)
         last_inv = db.query(models.DonatedInventory).filter(
@@ -217,10 +289,10 @@ def format_consent_response(consent, db: Session):
             item_id=item.item_id,
             consent_code=item.consent_code,
             icode=item.icode,
-            drug_name=drug.name if drug else "ไม่พบรายการยา",
+            drug_name=drug_name,
             quantity=item.quantity,
-            units=drug.units if drug else "เม็ด",
-            unitcost=drug.unitcost if drug else 0.0,
+            units=drug_units,
+            unitcost=drug_cost,
             preset_lot_number=preset_lot,
             preset_expiration_date=preset_exp,
             preset_brand_name=preset_brand
@@ -263,11 +335,13 @@ def create_patient_consent(consent: schemas.ConsentCreate, db: Session = Depends
     db.commit()
     db.refresh(db_consent)
     
-    # บันทึกรายการยาลงตารางพักข้อมูลชั่วคราว
+    # บันทึกรายการยาลงตารางพักข้อมูลชั่วคราว พร้อมบันทึกชื่อยาและหน่วยนับ
     for item in consent.items:
         db_item = models.ConsentItem(
             consent_code=print_code,
             icode=item.icode,
+            drug_name=item.drug_name,
+            units=item.units or "เม็ด",
             quantity=item.quantity
         )
         db.add(db_item)
@@ -288,6 +362,27 @@ def get_consent_by_code(code: str, db: Session = Depends(get_db)):
     if not consent:
         raise HTTPException(status_code=404, detail="ไม่พบรหัสสติ๊กเกอร์ใบยินยอมนี้ในระบบ")
     return format_consent_response(consent, db)
+
+@app.delete("/api/consents/{code}")
+def delete_consent_bag(code: str, db: Session = Depends(get_db)):
+    """ลบถุงยา/ใบยินยอม (กรณีคีย์ผิด หรือต้องการยกเลิกถุงยานี้)"""
+    consent = db.query(models.PatientConsent).filter(models.PatientConsent.print_reference_code == code).first()
+    if not consent:
+        raise HTTPException(status_code=404, detail="ไม่พบรหัสถุงยานี้ในระบบ")
+    
+    # 1. ลบรายการยาในถุง (ConsentItem)
+    db.query(models.ConsentItem).filter(models.ConsentItem.consent_code == code).delete()
+    
+    # 2. หากเคยมีการ reconcile เป็น inventory ค้างไว้ที่ pending_inspect ให้ลบออกด้วย
+    db.query(models.DonatedInventory).filter(
+        models.DonatedInventory.print_reference_code == code,
+        models.DonatedInventory.status == 'pending_inspect'
+    ).delete()
+    
+    # 3. ลบตัวใบยินยอม
+    db.delete(consent)
+    db.commit()
+    return {"status": "success", "message": f"ลบถุงยา {code} สำเร็จเรียบร้อย"}
 
 @app.post("/api/consents/{code}/reconcile", response_model=List[schemas.InventoryResponse])
 def reconcile_consent_bag(code: str, req_data: schemas.ConsentReconcileRequest, db: Session = Depends(get_db)):

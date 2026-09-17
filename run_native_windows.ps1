@@ -1,4 +1,4 @@
-﻿# UTF-8 with BOM
+# UTF-8 with BOM
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "ระบบบริหารจัดการคลังยาบริจาค - Donated Medicine Manager (Native Mode)"
@@ -146,26 +146,28 @@ if (-not (Test-Path "secrets.toml")) {
 if ($needConfig) {
     Write-Host ""
     Write-Host "==============================================================================" -ForegroundColor Yellow
-    Write-Host "  [ตั้งค่าการเชื่อมต่อฐานข้อมูล HOSxP MySQL]" -ForegroundColor Cyan
-    Write-Host "  (กด Enter ทันทีหากต้องการใช้ค่ามาตรฐานของ รพ.สมเด็จพระยุพราชสายบุรี)" -ForegroundColor Gray
+    Write-Host "  [ตั้งค่าการเชื่อมต่อฐานข้อมูล HOSxP MySQL Database]" -ForegroundColor Cyan
     Write-Host "==============================================================================" -ForegroundColor Yellow
     
-    $hHost = Read-Host "  1. HOSxP MySQL Host IP [ค่ามาตรฐาน: 192.168.0.251]"
+    $hHost = Read-Host "  1. HOSxP MySQL Host IP"
     if (-not $hHost -or -not $hHost.Trim()) { $hHost = "192.168.0.251" } else { $hHost = $hHost.Trim() }
 
-    $hPort = Read-Host "  2. HOSxP MySQL Port [ค่ามาตรฐาน: 3306]"
+    $hPort = Read-Host "  2. HOSxP MySQL Port"
     if (-not $hPort -or -not $hPort.Trim()) { $hPort = "3306" } else { $hPort = $hPort.Trim() }
 
-    $hDb = Read-Host "  3. HOSxP Database Name [ค่ามาตรฐาน: hos]"
+    $hDb = Read-Host "  3. HOSxP Database Name"
     if (-not $hDb -or -not $hDb.Trim()) { $hDb = "hos" } else { $hDb = $hDb.Trim() }
 
-    $hUser = Read-Host "  4. HOSxP Database User [ค่ามาตรฐาน: sa]"
+    $hUser = Read-Host "  4. HOSxP Database User"
     if (-not $hUser -or -not $hUser.Trim()) { $hUser = "sa" } else { $hUser = $hUser.Trim() }
 
-    $hPass = Read-Host "  5. HOSxP Database Password [ค่ามาตรฐาน: sa]"
-    if (-not $hPass) { $hPass = "sa" }
+    $hPass = Read-Host "  5. HOSxP Database Password" -AsSecureString
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($hPass)
+    $hPassPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+    if (-not $hPassPlain) { $hPassPlain = "sa" }
 
-    $dbUrl = "mysql+pymysql://${hUser}:${hPass}@${hHost}:${hPort}/${hDb}"
+    $dbUrl = "mysql+pymysql://${hUser}:${hPassPlain}@${hHost}:${hPort}/${hDb}"
 
     # บันทึก secrets.toml
     $secretsContent = @"
@@ -175,7 +177,7 @@ host = "$hHost"
 port = $hPort
 name = "$hDb"
 user = "$hUser"
-password = "$hPass"
+password = "$hPassPlain"
 driver = "mysql+pymysql"
 url = "$dbUrl"
 

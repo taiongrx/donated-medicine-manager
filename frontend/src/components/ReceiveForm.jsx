@@ -31,6 +31,8 @@ function ReceiveForm({ onPrintConsent }) {
   const [frontItemsList, setFrontItemsList] = useState([])
   const [frontSaveLoading, setFrontSaveLoading] = useState(false)
   const [frontSuccessData, setFrontSuccessData] = useState(null)
+  const [patientPrescriptions, setPatientPrescriptions] = useState([])
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false)
 
   const frontQtyInputRef = useRef(null)
   const drugSearchInputRef = useRef(null)
@@ -174,6 +176,7 @@ function ReceiveForm({ onPrintConsent }) {
     setPatientLoading(true)
     setPatientName('')
     setFrontSuccessData(null)
+    setPatientPrescriptions([])
     
     fetch(`/api/patients/${encodeURIComponent(formattedHN)}`)
       .then(res => {
@@ -183,11 +186,91 @@ function ReceiveForm({ onPrintConsent }) {
       .then(data => {
         setPatientName(`${data.fname} ${data.lname}`)
         setPatientLoading(false)
+
+        // ดึงรายการยาในประวัติการรักษาล่าสุด (HOSxP Visit)
+        setPrescriptionsLoading(true)
+        fetch(`/api/patients/${encodeURIComponent(formattedHN)}/prescriptions`)
+          .then(res => res.ok ? res.json() : [])
+          .then(visits => {
+            setPatientPrescriptions(visits)
+            setPrescriptionsLoading(false)
+          })
+          .catch(() => {
+            setPatientPrescriptions([])
+            setPrescriptionsLoading(false)
+          })
       })
       .catch(err => {
         alert(err.message)
         setPatientLoading(false)
+        setPrescriptionsLoading(false)
       })
+  }
+
+  // เพิ่มยาจากประวัติ Visit เข้าถุงยา
+  const handleAddPrescriptionItem = (item) => {
+    const existingIndex = frontItemsList.findIndex(x => x.icode === item.icode)
+    if (existingIndex >= 0) {
+      const updated = [...frontItemsList]
+      updated[existingIndex].quantity += (item.qty || 1)
+      updated[existingIndex].total_value = updated[existingIndex].quantity * (item.unitprice || 0)
+      setFrontItemsList(updated)
+    } else {
+      setFrontItemsList([...frontItemsList, {
+        icode: item.icode,
+        drug_name: item.drug_name,
+        units: item.units || 'เม็ด',
+        quantity: item.qty || 1,
+        unitcost: item.unitprice || 0,
+        total_value: (item.qty || 1) * (item.unitprice || 0)
+      }])
+    }
+  }
+
+  // เพิ่มยาทั้งหมดใน Visit นั้นเข้าถุงยา
+  const handleAddAllFromVisit = (visitItems) => {
+    let updated = [...frontItemsList]
+    visitItems.forEach(item => {
+      const existingIndex = updated.findIndex(x => x.icode === item.icode)
+      if (existingIndex >= 0) {
+        updated[existingIndex].quantity += (item.qty || 1)
+        updated[existingIndex].total_value = updated[existingIndex].quantity * (item.unitprice || 0)
+      } else {
+        updated.push({
+          icode: item.icode,
+          drug_name: item.drug_name,
+          units: item.units || 'เม็ด',
+          quantity: item.qty || 1,
+          unitcost: item.unitprice || 0,
+          total_value: (item.qty || 1) * (item.unitprice || 0)
+        })
+      }
+    })
+    setFrontItemsList(updated)
+  }
+
+  // ฟังก์ชันลบถุงยา
+  const handleDeleteBag = (bagCode, e) => {
+    if (e) e.stopPropagation()
+    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบถุงยา ${bagCode}?\nรายการยาในถุงนี้จะถูกยกเลิกทั้งหมด`)) {
+      return
+    }
+    
+    fetch(`/api/consents/${encodeURIComponent(bagCode)}`, { method: 'DELETE' })
+      .then(res => {
+        if (!res.ok) throw new Error("ไม่สามารถลบถุงยาได้")
+        return res.json()
+      })
+      .then(() => {
+        alert(`ลบถุงยา ${bagCode} สำเร็จเรียบร้อย`)
+        if (selectedBagCode === bagCode) {
+          setSelectedBagCode('')
+          setActiveBagData(null)
+          setReconcileItems([])
+        }
+        fetchPendingBags()
+      })
+      .catch(err => alert(err.message))
   }
 
   const [showDrugDropdown, setShowDrugDropdown] = useState(false)
@@ -277,6 +360,8 @@ function ReceiveForm({ onPrintConsent }) {
         officer_name: officerName,
         items: frontItemsList.map(item => ({
           icode: item.icode,
+          drug_name: item.drug_name,
+          units: item.units,
           quantity: item.quantity
         }))
       })
@@ -302,6 +387,7 @@ function ReceiveForm({ onPrintConsent }) {
         // ล้างข้อมูลเพื่อบริการคนไข้คิวถัดไป
         setHnInput('')
         setPatientName('')
+        setPatientPrescriptions([])
         setFrontItemsList([])
       })
       .catch(err => {
@@ -438,9 +524,67 @@ function ReceiveForm({ onPrintConsent }) {
             </div>
 
             {patientName && (
-              <div className="form-group" style={{ padding: '12px', background: 'rgba(0, 113, 227, 0.04)', borderRadius: '8px', border: '1px solid rgba(0, 113, 227, 0.1)', marginBottom: '20px' }}>
+              <div className="form-group" style={{ padding: '12px', background: 'rgba(0, 113, 227, 0.04)', borderRadius: '8px', border: '1px solid rgba(0, 113, 227, 0.1)', marginBottom: '16px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ผู้ป่วย HOSxP:</span>
                 <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--accent-color)' }}>{patientName}</p>
+              </div>
+            )}
+
+            {patientName && prescriptionsLoading && (
+              <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.02)', borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                กำลังดึงประวัติการสั่งยาจาก HOSxP...
+              </div>
+            )}
+
+            {patientName && !prescriptionsLoading && patientPrescriptions.length > 0 && (
+              <div style={{ marginBottom: '20px', background: 'rgba(0, 113, 227, 0.03)', border: '1px solid rgba(0, 113, 227, 0.15)', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>
+                    📋 รายการยาใน Visit ล่าสุดของผู้ป่วย (คลิกเลือกเข้าถุงยาได้ทันที)
+                  </strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    พบ {patientPrescriptions.length} ครั้งตรวจ
+                  </span>
+                </div>
+                {patientPrescriptions.map((visit, vIdx) => (
+                  <div key={vIdx} style={{ marginBottom: '8px', background: '#FFFFFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        🗓️ วันที่ {visit.vstdate} {visit.vn ? `(VN: ${visit.vn})` : ''}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '6px' }}
+                        onClick={() => handleAddAllFromVisit(visit.items)}
+                      >
+                        + เพิ่มยาทั้งหมดใน Visit นี้
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {visit.items.map((item, iIdx) => (
+                        <button
+                          key={`${item.icode}-${iIdx}`}
+                          type="button"
+                          className="btn"
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            background: 'rgba(0, 113, 227, 0.07)',
+                            color: 'var(--accent-color)',
+                            border: '1px solid rgba(0, 113, 227, 0.2)',
+                            borderRadius: '16px',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => handleAddPrescriptionItem(item)}
+                          title="คลิกเพื่อเลือกยานี้เข้าถุงบริจาค"
+                        >
+                          + {item.drug_name} ({item.qty} {item.units})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -715,11 +859,30 @@ function ReceiveForm({ onPrintConsent }) {
                     }}
                     onClick={() => handleSelectBag(bag.print_reference_code)}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <strong style={{ fontSize: '13px', color: 'var(--accent-color)' }}>{bag.print_reference_code}</strong>
-                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        {new Date(bag.consent_date).toLocaleDateString('th-TH', { month: '2-digit', day: '2-digit' })}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          {new Date(bag.consent_date).toLocaleDateString('th-TH', { month: '2-digit', day: '2-digit' })}
+                        </span>
+                        <button
+                          type="button"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--danger-color)',
+                            cursor: 'pointer',
+                            padding: '2px 4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            opacity: 0.7
+                          }}
+                          title="ลบถุงยานี้"
+                          onClick={(e) => handleDeleteBag(bag.print_reference_code, e)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
                       <strong>HN:</strong> {bag.hn} | <strong>ผู้บริจาค:</strong> {bag.patient_name}
@@ -754,13 +917,25 @@ function ReceiveForm({ onPrintConsent }) {
             ) : (
               <form onSubmit={handleConfirmReconcile} style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--accent-color)' }}>
-                      คัดแยกถุงยาอ้างอิง: {activeBagData.print_reference_code}
-                    </h3>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      <strong>ผู้บริจาค:</strong> {activeBagData.patient_name} (HN: {activeBagData.hn}) | <strong>ผู้รับหน้าต่าง:</strong> {activeBagData.officer_name}
-                    </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--accent-color)' }}>
+                        คัดแยกถุงยาอ้างอิง: {activeBagData.print_reference_code}
+                      </h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        <strong>ผู้บริจาค:</strong> {activeBagData.patient_name} (HN: {activeBagData.hn}) | <strong>ผู้รับหน้าต่าง:</strong> {activeBagData.officer_name}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      style={{ padding: '6px 12px', fontSize: '12px', gap: '6px' }}
+                      onClick={() => handleDeleteBag(activeBagData.print_reference_code)}
+                      title="ลบถุงยาและรายการในถุงนี้ออกจากระบบ"
+                    >
+                      <Trash2 size={13} />
+                      ลบถุงยานี้
+                    </button>
                   </div>
 
                   <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: 'var(--text-secondary)' }}>
