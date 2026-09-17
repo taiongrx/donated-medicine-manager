@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: donated-medicine-backend
+    restart: always
+    env_file:
+      - .env
+    # บันทึกข้อมูล SQLite ลงใน volume หากรันแบบจำลองในช่วงพัฒนา
+    volumes:
+      - sqlite_data:/app/db_data
+    ports:
+
+      - "8000:8000"
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: donated-medicine-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  sqlite_data:
+
+networks:
+  app-network:
+    driver: bridge

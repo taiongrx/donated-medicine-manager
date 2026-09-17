@@ -1,0 +1,30 @@
+# Environment & Secrets (Security & PDPA Guard)
+.env
+*.env
+secrets.toml
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+dist/
+
+# Databases & Local Data
+*.db
+*.sqlite3
+db_data/
+
+# Frontend
+node_modules/
+frontend/dist/
+.npm
+
+# Logs & OS
+*.log
+.DS_Store

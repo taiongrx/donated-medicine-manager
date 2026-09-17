@@ -1,0 +1,103 @@
+name: CI/CD Pipeline - Donated Medicine Manager
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job 1: ตรวจสอบความถูกต้องของโค้ด (Linting & Testing)
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # ส่วนตรวจโค้ดฝั่ง React Frontend
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install Frontend Dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build Frontend (Test Compile)
+      run: |
+        cd frontend
+        npm run build
+
+    # ส่วนตรวจโค้ดฝั่ง Python Backend
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Backend Dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Backend Static Analysis (Check syntax errors)
+      run: |
+        python -m py_compile backend/*.py
+
+  # Job 2: บิวด์และแพ็กเกจเป็น Docker Images (เมื่อรวมเข้า main)
+  build-and-push-images:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: actions/setup-docker-action@v2
+      with:
+        daemon-opts: |
+          {
+            "debug": true
+          }
+
+    # ขั้นตอนล็อกอินเข้าระบบ Docker Hub หรือ GHCR
+    # เพื่อความปลอดภัย ข้อมูลล็อกอินจะถูกดึงจาก Repository Secrets
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # 1. บิวด์และดัน Backend Image
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/donated-medicine-backend:latest
+          ${{ secrets.DOCKER_USERNAME }}/donated-medicine-backend:${{ github.sha }}
+
+    # 2. บิวด์และดัน Frontend Image (Nginx + React)
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/donated-medicine-frontend:latest
+          ${{ secrets.DOCKER_USERNAME }}/donated-medicine-frontend:${{ github.sha }}
+
+    # 3. แจ้งเตือนไปยัง Server ปลายทาง (Webhook / Deploy step)
+    - name: SSH Deploy Trigger
+      run: |
+        echo "ท่อ CI/CD ทำการ Build & Push Images ขึ้นคลังสำเร็จเรียบร้อยแล้ว!"
+        echo "ขั้นตอนถัดไป: เซิร์ฟเวอร์ใน รพ. สามารถทำ webhook ดึงอิมเมจใหม่มารันได้"

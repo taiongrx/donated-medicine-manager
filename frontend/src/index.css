@@ -1,0 +1,445 @@
+/* =====================================================================
+   Apple Website Design System (Clean, White, Glossy)
+   Donated Medicine Manager - รพ.สมเด็จพระยุพราชสายบุรี
+   ===================================================================== */
+
+:root {
+  /* System Fonts */
+  --font-display: 'Outfit', 'Sarabun', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-text: 'Sarabun', 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Color Palette (Apple Inspired Light Theme) */
+  --bg-primary: #F5F5F7; /* Apple Light Gray Background */
+  --bg-secondary: #FFFFFF;
+  --text-primary: #1D1D1F; /* Apple Dark Charcoal (High Contrast) */
+  --text-secondary: #86868B; /* Apple Medium Gray */
+  --text-tertiary: #A1A1A6;
+  
+  --accent-color: #0071E3; /* Apple Blue */
+  --accent-hover: #0077ED;
+  --success-color: #34C759; /* Apple iOS Green */
+  --warning-color: #FF9500; /* Apple iOS Orange */
+  --danger-color: #FF3B30; /* Apple iOS Red */
+  
+  /* Glossy / Glassmorphism Tokens */
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04), 
+                  0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  
+  --transition-smooth: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  --border-radius-lg: 16px;
+  --border-radius-md: 10px;
+}
+
+/* Global Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-text);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+/* Layout App Container */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 80px 16px;
+}
+
+/* Apple Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  color: var(--accent-color);
+  width: 32px;
+  height: 32px;
+}
+
+.logo-section h1 {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1D1D1F 0%, #434345 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.logo-section p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Navigation Tabs (Apple Segmented Control Style) */
+.tab-navigation {
+  display: flex;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 4px;
+  border-radius: 12px;
+  gap: 2px;
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+}
+
+.tab-button.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Glossy Cards */
+.glossy-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  padding: 24px;
+  box-shadow: var(--glass-shadow);
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.glossy-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+/* Apple Buttons */
+.btn {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: var(--border-radius-md);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+  outline: none;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--accent-color);
+  color: #FFFFFF;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: #FFFFFF;
+}
+
+.btn-success:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: #FFFFFF;
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Inputs & Form Fields */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  font-family: var(--font-text);
+  font-size: 15px;
+  padding: 11px 14px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--text-primary);
+  transition: var(--transition-smooth);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--accent-color);
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15);
+}
+
+/* Tables in Apple Style */
+.table-container {
+  overflow-x: auto;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+}
+
+.apple-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.apple-table th {
+  background: #FAFAFC;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 13px;
+}
+
+.apple-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-primary);
+}
+
+.apple-table tr:last-child td {
+  border-bottom: none;
+}
+
+.apple-table tr:hover td {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+/* Badge Styles */
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-pending {
+  background: rgba(255, 149, 0, 0.12);
+  color: var(--warning-color);
+}
+
+.badge-active {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--success-color);
+}
+
+.badge-disposed {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--danger-color);
+}
+
+/* Grid Layouts */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .tab-navigation {
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* =====================================================================
+   CSS สำหรับการพิมพ์ Consent Sticker ขนาด 80mm x 50mm (Thermal Label)
+   ===================================================================== */
+
+/* =====================================================================
+   CSS สำหรับการพิมพ์ (Sticker & Requisition A4 Slip)
+   ===================================================================== */
+
+
+/* =====================================================================
+   CSS สำหรับการพิมพ์ (Sticker & Requisition A4 Slip)
+   ===================================================================== */
+
+.print-sticker-container,
+.print-slip-container {
+  display: none; /* ซ่อนบนหน้าจอปกติ */
+}
+
+@media print {
+  /* 1. กรณีพิมพ์สติ๊กเกอร์ยาความร้อน (8x5 ซม.) */
+  body:has(.print-sticker-container) * {
+    visibility: hidden;
+  }
+  body:has(.print-sticker-container) .print-sticker-container,
+  body:has(.print-sticker-container) .print-sticker-container * {
+    visibility: visible;
+  }
+  body:has(.print-sticker-container) .print-sticker-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    height: 50mm;
+    padding: 3mm 4mm;
+    box-sizing: border-box;
+    font-family: 'Sarabun', sans-serif;
+    color: #000000;
+    background: #FFFFFF;
+    border: none;
+  }
+
+  .sticker-header {
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 0.5px solid #000000;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+  }
+
+  .sticker-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    margin-bottom: 2px;
+  }
+
+  .sticker-body {
+    font-size: 8px;
+    line-height: 1.25;
+    margin-bottom: 4px;
+    text-align: justify;
+  }
+
+  .sticker-sign {
+    margin-top: 5px;
+    font-size: 8px;
+    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  /* 2. กรณีพิมพ์ใบเบิกและใบทำลายพัสดุ (กระดาษ A4) */
+  body:has(.print-slip-container) * {
+    visibility: hidden;
+  }
+  body:has(.print-slip-container) .print-slip-container,
+  body:has(.print-slip-container) .print-slip-container * {
+    visibility: visible;
+  }
+  body:has(.print-slip-container) .print-slip-container {
+    display: block !important;
+    width: 100%;
+    font-family: 'Sarabun', sans-serif;
+    color: #000000;
+    background: #FFFFFF;
+  }
+  body:has(.print-slip-container) .print-slip-container table {
+    page-break-inside: auto;
+  }
+  body:has(.print-slip-container) .print-slip-container tr {
+    page-break-inside: avoid;
+  }
+}
+

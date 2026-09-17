@@ -1,0 +1,15 @@
+[Unit]
+Description=Donated Medicine Manager Service (OPD Pharmacy Server)
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/donated-medicine-manager
+ExecStart=/usr/bin/docker compose up
+ExecStop=/usr/bin/docker compose down
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
