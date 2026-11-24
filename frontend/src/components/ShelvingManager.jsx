@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { FolderUp, ShieldAlert, Check, Ban, CheckSquare, Square, RefreshCw, Printer, Search, X } from 'lucide-react'
+import { apiUrl } from '../api'
 
 function ShelvingManager({ activePrintSlip, setActivePrintSlip }) {
   const [inventories, setInventories] = useState([])
@@ -28,7 +29,7 @@ function ShelvingManager({ activePrintSlip, setActivePrintSlip }) {
   const [hosxpOfficers, setHosxpOfficers] = useState([])
 
   useEffect(() => {
-    fetch('/api/officers')
+    fetch(apiUrl('/api/officers'))
       .then(res => res.ok ? res.json() : [])
       .then(data => setHosxpOfficers(data))
       .catch(() => {})
@@ -36,7 +37,7 @@ function ShelvingManager({ activePrintSlip, setActivePrintSlip }) {
 
   const fetchInventoryData = () => {
     setLoading(true)
-    fetch('/api/inventories')
+    fetch(apiUrl('/api/inventories'))
       .then(res => res.json())
       .then(data => {
         const filtered = data.filter(item => item.quantity_remaining > 0 && item.status !== 'disposed')
@@ -171,7 +172,7 @@ function ShelvingManager({ activePrintSlip, setActivePrintSlip }) {
 
     setShelveSubmitLoading(true)
 
-    fetch('/api/inventories/bulk-shelve', {
+    fetch(apiUrl('/api/inventories/bulk-shelve'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -234,7 +235,7 @@ function ShelvingManager({ activePrintSlip, setActivePrintSlip }) {
 
     setDisposeSubmitLoading(true)
 
-    fetch('/api/inventories/bulk-dispose', {
+    fetch(apiUrl('/api/inventories/bulk-dispose'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

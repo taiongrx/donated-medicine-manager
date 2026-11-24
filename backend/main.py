@@ -1,23 +1,58 @@
+import os
 import random
 import csv
 from datetime import datetime, date, timedelta
 from io import StringIO
 from fastapi import FastAPI, Depends, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List, Optional
 
 from .database import get_db, engine
 from . import models, schemas
-
-from fastapi.responses import JSONResponse
-from sqlalchemy import text
 from .logging_config import logger
 
-app = FastAPI(title="Donated Medicine Manager API - รพ.สมเด็จพระยุพราชสายบุรี")
+# รองรับการ mount เป็น Sub-App ใต้ MEDUSA AI+ (เช่น APP_BASE_PATH=/donated-medicine หรือ FastAPI app.mount)
+APP_BASE_PATH = os.getenv("APP_BASE_PATH", "").strip().rstrip("/")
+ROOT_PATH = os.getenv("ROOT_PATH", APP_BASE_PATH).strip().rstrip("/")
 
-# เปิดใช้งาน CORS สำหรับการเชื่อมโยงข้ามพอร์ตในฝั่งพัฒนา
+app = FastAPI(
+    title="Donated Medicine Manager API - รพ.สมเด็จพระยุพราชสายบุรี",
+    root_path=ROOT_PATH,
+)
+
+
+class SubAppPrefixMiddleware:
+    """ASGI Middleware สำหรับตัด APP_BASE_PATH ออกอัตโนมัติเมื่อ reverse proxy ส่ง prefix มาด้วย"""
+
+    def __init__(self, asgi_app, prefix: str):
+        self.asgi_app = asgi_app
+        self.prefix = prefix.rstrip("/")
+
+    async def __call__(self, scope, receive, send):
+        if self.prefix and scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            if path == self.prefix:
+                # Redirect /<subapp> -> /<subapp>/ เพื่อให้ relative static assets (./assets/...) โหลดถูกต้อง
+                if scope["type"] == "http":
+                    qs = scope.get("query_string", b"").decode("latin-1")
+                    target = f"{self.prefix}/" + (f"?{qs}" if qs else "")
+                    response = RedirectResponse(url=target, status_code=307)
+                    await response(scope, receive, send)
+                    return
+            elif path.startswith(self.prefix + "/"):
+                scope = dict(scope)
+                scope["path"] = path[len(self.prefix):]
+                scope["root_path"] = self.prefix
+        await self.asgi_app(scope, receive, send)
+
+
+if APP_BASE_PATH:
+    app.add_middleware(SubAppPrefixMiddleware, prefix=APP_BASE_PATH)
+
+# เปิดใช้งาน CORS สำหรับการเชื่อมโยงข้ามพอร์ตในฝั่งพัฒนาและ MEDUSA AI+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -56,12 +91,20 @@ async def unhandled_exception_handler(request, exc: Exception):
 
 # Health & Readiness Probes (Directive 7)
 @app.get("/healthz", status_code=200)
-def healthz():
-    """Liveness probe สำหรับ Orchestrator เช็คสถานะตัว Service"""
+def healthz(db: Session = Depends(get_db)):
+    """Liveness & DB probe สำหรับ Orchestrator และ MEDUSA AI+ เช็คสถานะตัว Service"""
     from .database import DB_MODE
+    db_connected = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_connected = True
+    except Exception as e:
+        logger.error(f"Healthz DB check failed: {e}")
     return {
-        "status": "ok", 
+        "status": "ok" if db_connected else "degraded",
         "db_mode": DB_MODE,
+        "database": "connected" if db_connected else "disconnected",
+        "base_path": APP_BASE_PATH or "/",
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 

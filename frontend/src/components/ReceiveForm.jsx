@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Printer, Plus, Trash2, CheckCircle2, FileSpreadsheet, Package, UserCheck, Key } from 'lucide-react'
-
-// รายการยาสามัญ NCDs และพาราที่พบบ่อยสำหรับทำปุ่มด่วนหน้าต่างจ่ายยา (Lean Grid)
-const COMMON_DRUGS = [
-  { icode: 'DRUG001', name: 'Paracetamol 500 mg tab', unitcost: 0.50 },
-  { icode: 'DRUG002', name: 'Metformin 500 mg tab', unitcost: 1.20 },
-  { icode: 'DRUG003', name: 'Amlodipine 5 mg tab', unitcost: 2.50 },
-  { icode: 'DRUG004', name: 'Losartan 50 mg tab', unitcost: 4.00 },
-  { icode: 'DRUG005', name: 'Atorvastatin 20 mg tab', unitcost: 8.50 },
-  { icode: 'DRUG006', name: 'Omeprazole 20 mg cap', unitcost: 1.80 },
-]
+import { apiUrl } from '../api'
 
 function ReceiveForm({ onPrintConsent }) {
   // แท็บหลักภายในหน้ารับยา: 'front_desk' (เภสัชกรหน้าต่าง) หรือ 'back_desk' (จพ.คลังเคลียร์ Lot/Exp)
@@ -49,7 +40,7 @@ function ReceiveForm({ onPrintConsent }) {
   const [hosxpOfficers, setHosxpOfficers] = useState([])
 
   useEffect(() => {
-    fetch('/api/officers')
+    fetch(apiUrl('/api/officers'))
       .then(res => res.ok ? res.json() : [])
       .then(data => setHosxpOfficers(data))
       .catch(() => {})
@@ -92,7 +83,7 @@ function ReceiveForm({ onPrintConsent }) {
   // ดึงรายการถุงรอตรวจสอบทั้งหมด
   const fetchPendingBags = () => {
     setBagsLoading(true)
-    fetch('/api/consents/pending')
+    fetch(apiUrl('/api/consents/pending'))
       .then(res => res.json())
       .then(data => {
         setPendingBags(data)
@@ -124,7 +115,7 @@ function ReceiveForm({ onPrintConsent }) {
   const handleSelectBag = (code) => {
     setSelectedBagCode(code)
     setReconcileSuccess(false)
-    fetch(`/api/consents/${code}`)
+    fetch(apiUrl(`/api/consents/${code}`))
       .then(res => {
         if (!res.ok) throw new Error("ไม่พบถุงยานี้")
         return res.json()
@@ -144,7 +135,7 @@ function ReceiveForm({ onPrintConsent }) {
 
         // ดึงยี่ห้อที่เคยคีย์สำเร็จสำหรับยาแต่ละตัว (Lean brand auto-suggest)
         data.items.forEach(item => {
-          fetch(`/api/drugs/${item.icode}/brands`)
+          fetch(apiUrl(`/api/drugs/${item.icode}/brands`))
             .then(res => res.json())
             .then(brands => {
               setSuggestedBrands(prev => ({
@@ -178,7 +169,7 @@ function ReceiveForm({ onPrintConsent }) {
     setFrontSuccessData(null)
     setPatientPrescriptions([])
     
-    fetch(`/api/patients/${encodeURIComponent(formattedHN)}`)
+    fetch(apiUrl(`/api/patients/${encodeURIComponent(formattedHN)}`))
       .then(res => {
         if (!res.ok) throw new Error("ไม่พบ HN นี้ในระบบ HOSxP")
         return res.json()
@@ -189,7 +180,7 @@ function ReceiveForm({ onPrintConsent }) {
 
         // ดึงรายการยาในประวัติการรักษาล่าสุด (HOSxP Visit)
         setPrescriptionsLoading(true)
-        fetch(`/api/patients/${encodeURIComponent(formattedHN)}/prescriptions`)
+        fetch(apiUrl(`/api/patients/${encodeURIComponent(formattedHN)}/prescriptions`))
           .then(res => res.ok ? res.json() : [])
           .then(visits => {
             setPatientPrescriptions(visits)
@@ -256,7 +247,7 @@ function ReceiveForm({ onPrintConsent }) {
       return
     }
     
-    fetch(`/api/consents/${encodeURIComponent(bagCode)}`, { method: 'DELETE' })
+    fetch(apiUrl(`/api/consents/${encodeURIComponent(bagCode)}`), { method: 'DELETE' })
       .then(res => {
         if (!res.ok) throw new Error("ไม่สามารถลบถุงยาได้")
         return res.json()
@@ -279,7 +270,7 @@ function ReceiveForm({ onPrintConsent }) {
   const handleSearchDrugs = (q) => {
     setDrugSearchQuery(q)
     setShowDrugDropdown(true)
-    fetch(`/api/drugs?q=${encodeURIComponent(q.trim())}`)
+    fetch(apiUrl(`/api/drugs?q=${encodeURIComponent(q.trim())}`))
       .then(res => res.json())
       .then(data => setDrugSearchResults(data))
       .catch(err => console.error("Error searching drugs:", err))
@@ -351,7 +342,7 @@ function ReceiveForm({ onPrintConsent }) {
     setFrontSaveLoading(true)
     setFrontSuccessData(null)
 
-    fetch('/api/consents', {
+    fetch(apiUrl('/api/consents'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -420,7 +411,7 @@ function ReceiveForm({ onPrintConsent }) {
     setReconcileLoading(true)
     setReconcileSuccess(false)
 
-    fetch(`/api/consents/${activeBagData.print_reference_code}/reconcile`, {
+    fetch(apiUrl(`/api/consents/${activeBagData.print_reference_code}/reconcile`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -653,23 +644,6 @@ function ReceiveForm({ onPrintConsent }) {
                         ))}
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* ปุ่มด่วน NCDs */}
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {COMMON_DRUGS.map(d => (
-                      <button 
-                        key={d.icode} 
-                        type="button" 
-                        className="btn btn-secondary" 
-                        style={{ padding: '5px 10px', fontSize: '11px', borderRadius: '20px' }}
-                        onClick={() => handleSelectDrug({ icode: d.icode, name: d.name, unitcost: d.unitcost, units: 'เม็ด' })}
-                      >
-                        + {d.name.split(' ')[0]}
-                      </button>
-                    ))}
                   </div>
                 </div>
 

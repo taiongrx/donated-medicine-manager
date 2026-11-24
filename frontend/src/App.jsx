@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Activity, ShieldAlert, FileText, ClipboardList, Settings as SettingsIcon, LogIn, Lock, UserCheck, FileSpreadsheet, Printer, X } from 'lucide-react'
+import { apiUrl } from './api'
 import Dashboard from './components/Dashboard'
 import ReceiveForm from './components/ReceiveForm'
 import ShelvingManager from './components/ShelvingManager'
@@ -76,28 +77,103 @@ function App() {
   const [activePrintSlip, setActivePrintSlip] = useState(null) // { type: 'requisition'|'disposal', doc_reference, performed_by, date, items: [...] }
 
   const [dbStatus, setDbStatus] = useState('connecting')
+  const [isEmbedded, setIsEmbedded] = useState(false)
 
-  // บัญชีผู้ใช้งานระบบจำลองสำรองกรณีออฟไลน์
-  const mockUsers = [
-    { username: 'jaslan', password: '123', name: 'ภก.ยัสลัน มายุดิน', role: 'เภสัชกรชำนาญการ', dept: 'กลุ่มงานเภสัชกรรม' },
-    { username: 'Ahlam', password: '123', name: 'อัหลาม แคเม๊าะ', role: 'เจ้าพนักงานเภสัชกรรม', dept: 'ห้องยา' },
-    { username: 'dah', password: '123', name: 'ภญ.วันฮามีดะห์ ปานากาเซ็ง', role: 'หัวหน้ากลุ่มงานเภสัชกรรม', dept: 'กลุ่มงานเภสัชกรรม' }
-  ]
+  // แปลงข้อมูลสิทธิ์ผู้ใช้จาก MEDUSA AI+ (URL Query หรือ postMessage)
+  const applyMedusaUser = (raw) => {
+    if (!raw) return false
+    const username = (raw.user || raw.username || raw.loginname || '').toString().trim()
+    const displayName = (raw.name || raw.fullname || raw.display_name || username).toString().trim()
+    if (!username && !displayName) return false
+
+    const medusaUser = {
+      username: username || displayName,
+      name: displayName || username,
+      role: (raw.role || raw.position || raw.entryposition || 'เจ้าหน้าที่ปฏิบัติงาน').toString().trim(),
+      dept: (raw.dept || raw.department || raw.groupname || 'กลุ่มงานเภสัชกรรม').toString().trim(),
+      source: 'medusa_sso'
+    }
+    setCurrentUser(medusaUser)
+    try {
+      sessionStorage.setItem('medusa_user', JSON.stringify(medusaUser))
+      localStorage.setItem('current_user', JSON.stringify(medusaUser))
+    } catch {
+      // ignore storage quota/sandbox errors in iframe
+    }
+    return true
+  }
 
   useEffect(() => {
-    // 1. ตรวจสอบสถานะ Backend & Database
-    fetch('/healthz')
+    // 1. ตรวจสอบโหมด MEDUSA AI+ Embed & SSO จาก URL Query (?embed=1&user=...&name=...&role=...)
+    const params = new URLSearchParams(window.location.search)
+    const embedParam = params.get('embed')
+    const inIframe = window.self !== window.top
+    const embeddedNow = embedParam === '1' || embedParam === 'true' || inIframe
+    setIsEmbedded(embeddedNow)
+
+    const hasQueryAuth = applyMedusaUser({
+      user: params.get('user') || params.get('username') || params.get('loginname'),
+      name: params.get('name') || params.get('fullname'),
+      role: params.get('role') || params.get('position'),
+      dept: params.get('dept') || params.get('department'),
+    })
+
+    // 2. หากไม่ได้ส่งผ่าน Query ให้ตรวจสอบ sessionStorage / localStorage เดิม
+    if (!hasQueryAuth) {
+      try {
+        const savedUser = sessionStorage.getItem('medusa_user') || localStorage.getItem('current_user')
+        if (savedUser) {
+          setCurrentUser(JSON.parse(savedUser))
+        }
+      } catch {
+        // ignore parse/storage errors
+      }
+    }
+
+    // 3. รองรับการรับสิทธิ์ผู้ใช้จาก MEDUSA AI+ ผ่าน window.postMessage (type: "MEDUSA_AUTH")
+    const handleMedusaMessage = (event) => {
+      const msg = event?.data
+      if (!msg || typeof msg !== 'object') return
+
+      if (msg.type === 'MEDUSA_AUTH') {
+        const payload = msg.payload || msg.data || msg
+        if (applyMedusaUser(payload)) {
+          setIsEmbedded(true)
+        }
+      } else if (msg.type === 'MEDUSA_LOGOUT') {
+        setCurrentUser(null)
+        try {
+          sessionStorage.removeItem('medusa_user')
+          localStorage.removeItem('current_user')
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    window.addEventListener('message', handleMedusaMessage)
+
+    // แจ้ง MEDUSA AI+ parent frame ว่า Sub-App พร้อมรับ MEDUSA_AUTH แล้ว
+    if (inIframe) {
+      try {
+        window.parent.postMessage({ type: 'MEDUSA_SUBAPP_READY', app: 'donated-medicine-manager' }, '*')
+      } catch {
+        // ignore cross-origin postMessage restriction
+      }
+    }
+
+    // 4. ตรวจสอบสถานะ Backend & ฐานข้อมูล HOSxP MySQL จริง (Zero Mockup Policy)
+    fetch(apiUrl('/healthz'))
       .then(res => res.json())
       .then(data => {
-        if (data.db_mode === 'local_sqlite_fallback') {
-          setDbStatus('offline_fallback')
-        } else {
+        if (data.status === 'ok' && data.database !== 'disconnected') {
           setDbStatus('connected')
+        } else {
+          setDbStatus('error')
         }
       })
       .catch(() => {
-        // ลอง fallback ไปดู dashboard/summary
-        fetch('/api/dashboard/summary')
+        fetch(apiUrl('/api/dashboard/summary'))
           .then(res => {
             if (res.ok) setDbStatus('connected')
             else setDbStatus('error')
@@ -105,42 +181,44 @@ function App() {
           .catch(() => setDbStatus('error'))
       })
 
-    // 2. ตรวจสอบสถานะ Login
-    const savedUser = localStorage.getItem('current_user')
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser))
+    // 5. กำหนดค่าเริ่มต้นผู้ลงนามราชการจริงจากฐานข้อมูล HOSxP
+    try {
+      if (!localStorage.getItem('setting_director')) localStorage.setItem('setting_director', 'นพ.อัยรัฐ ระมัญบากา')
+      if (!localStorage.getItem('setting_director_title')) localStorage.setItem('setting_director_title', 'ผู้อำนวยการโรงพยาบาลสมเด็จพระยุพราชสายบุรี')
+
+      if (!localStorage.getItem('setting_head_pharmacy')) localStorage.setItem('setting_head_pharmacy', 'ภญ.วันฮามีดะห์ ปานากาเซ็ง')
+      if (!localStorage.getItem('setting_head_pharmacy_title')) localStorage.setItem('setting_head_pharmacy_title', 'หัวหน้ากลุ่มงานเภสัชกรรม')
+
+      if (!localStorage.getItem('setting_officer_disp')) localStorage.setItem('setting_officer_disp', 'ภก.ยัสลัน มายุดิน')
+      if (!localStorage.getItem('setting_officer_disp_title')) localStorage.setItem('setting_officer_disp_title', 'เภสัชกรปฏิบัติงานคลังยาบริจาค')
+
+      if (!localStorage.getItem('setting_receiver')) localStorage.setItem('setting_receiver', 'อัหลาม แคเม๊าะ')
+      if (!localStorage.getItem('setting_receiver_title')) localStorage.setItem('setting_receiver_title', 'เจ้าพนักงานเภสัชกรรม')
+
+      if (!localStorage.getItem('setting_committee_1')) localStorage.setItem('setting_committee_1', 'ภก.กฤษฎา โปจีน')
+      if (!localStorage.getItem('setting_committee_1_title')) localStorage.setItem('setting_committee_1_title', 'เภสัชกรชำนาญการ')
+
+      if (!localStorage.getItem('setting_committee_2')) localStorage.setItem('setting_committee_2', 'ภญ.อลิษา โต๊ะเปาะ')
+      if (!localStorage.getItem('setting_committee_2_title')) localStorage.setItem('setting_committee_2_title', 'เภสัชกร')
+
+      if (!localStorage.getItem('setting_committee_3')) localStorage.setItem('setting_committee_3', 'ฟาตีเมาะ วามิง')
+      if (!localStorage.getItem('setting_committee_3_title')) localStorage.setItem('setting_committee_3_title', 'เจ้าพนักงานเภสัชกรรมชำนาญงาน')
+    } catch {
+      // ignore storage errors
     }
 
-    // 3. กำหนดค่าเริ่มต้นผู้ลงนามราชการจริงจากฐานข้อมูล HOSxP
-    if (!localStorage.getItem('setting_director')) localStorage.setItem('setting_director', 'นพ.อัยรัฐ ระมัญบากา')
-    if (!localStorage.getItem('setting_director_title')) localStorage.setItem('setting_director_title', 'ผู้อำนวยการโรงพยาบาลสมเด็จพระยุพราชสายบุรี')
-
-    if (!localStorage.getItem('setting_head_pharmacy')) localStorage.setItem('setting_head_pharmacy', 'ภญ.วันฮามีดะห์ ปานากาเซ็ง')
-    if (!localStorage.getItem('setting_head_pharmacy_title')) localStorage.setItem('setting_head_pharmacy_title', 'หัวหน้ากลุ่มงานเภสัชกรรม')
-
-    if (!localStorage.getItem('setting_officer_disp')) localStorage.setItem('setting_officer_disp', 'ภก.ยัสลัน มายุดิน')
-    if (!localStorage.getItem('setting_officer_disp_title')) localStorage.setItem('setting_officer_disp_title', 'เภสัชกรปฏิบัติงานคลังยาบริจาค')
-
-    if (!localStorage.getItem('setting_receiver')) localStorage.setItem('setting_receiver', 'อัหลาม แคเม๊าะ')
-    if (!localStorage.getItem('setting_receiver_title')) localStorage.setItem('setting_receiver_title', 'เจ้าพนักงานเภสัชกรรม')
-
-    if (!localStorage.getItem('setting_committee_1')) localStorage.setItem('setting_committee_1', 'ภก.กฤษฎา โปจีน')
-    if (!localStorage.getItem('setting_committee_1_title')) localStorage.setItem('setting_committee_1_title', 'เภสัชกรชำนาญการ')
-
-    if (!localStorage.getItem('setting_committee_2')) localStorage.setItem('setting_committee_2', 'ภญ.อลิษา โต๊ะเปาะ')
-    if (!localStorage.getItem('setting_committee_2_title')) localStorage.setItem('setting_committee_2_title', 'เภสัชกร')
-
-    if (!localStorage.getItem('setting_committee_3')) localStorage.setItem('setting_committee_3', 'ฟาตีเมาะ วามิง')
-    if (!localStorage.getItem('setting_committee_3_title')) localStorage.setItem('setting_committee_3_title', 'เจ้าพนักงานเภสัชกรรมชำนาญงาน')
+    return () => {
+      window.removeEventListener('message', handleMedusaMessage)
+    }
   }, [])
 
-  // ฟังก์ชันล็อกอินผ่าน API / ฐานข้อมูล HOSxP opduser
+  // ฟังก์ชันล็อกอินผ่าน API / ฐานข้อมูล HOSxP opduser จริงเท่านั้น (Zero Mockup Policy)
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoginError('')
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -156,23 +234,12 @@ function App() {
         setLoginUsername('')
         setLoginPassword('')
       } else {
-        const errData = await res.json()
+        const errData = await res.json().catch(() => ({}))
         const msg = errData?.error?.message || errData?.detail || 'รหัสผู้ใช้งานหรือรหัสผ่าน HOSxP ไม่ถูกต้อง'
         setLoginError(`❌ ${msg}`)
       }
     } catch (err) {
-      // Fallback local check
-      const found = mockUsers.find(
-        u => u.username === loginUsername.toLowerCase().trim() && u.password === loginPassword
-      )
-      if (found) {
-        setCurrentUser(found)
-        localStorage.setItem('current_user', JSON.stringify(found))
-        setLoginUsername('')
-        setLoginPassword('')
-      } else {
-        setLoginError('❌ ไม่สามารถเชื่อมต่อระบบยืนยันตัวตน HOSxP หรือรหัสผ่านไม่ถูกต้อง')
-      }
+      setLoginError('❌ ไม่สามารถเชื่อมต่อระบบยืนยันตัวตน HOSxP ได้ กรุณาตรวจสอบเซิร์ฟเวอร์ฐานข้อมูล')
     }
   }
 
@@ -267,7 +334,7 @@ function App() {
                   type="text" 
                   className="form-input" 
                   style={{ paddingLeft: '38px', fontSize: '14px' }}
-                  placeholder="เช่น jaslan, Ahlam, dah"
+                  placeholder="ชื่อผู้ใช้งาน HOSxP"
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
                   required
@@ -301,7 +368,7 @@ function App() {
             <ul style={{ paddingLeft: '14px', margin: 0 }}>
               <li>ใช้ <strong>Username</strong> และ <strong>รหัสผ่าน HOSxP</strong> เดียวกับที่ใช้เข้าระบบจ่ายยา</li>
               <li>หากลืมรหัสผ่าน กรุณาติดต่อ <strong>ศูนย์ IT</strong> หรือผู้ดูแลระบบสารสนเทศ</li>
-              <li>ระบบจะเข้าสู่โหมดสำรอง (Offline) หากไม่สามารถเชื่อมต่อ HOSxP ได้</li>
+              <li>หากเข้าใช้งานผ่านระบบ <strong>MEDUSA AI+</strong> ระบบจะยืนยันตัวตนให้อัตโนมัติ</li>
             </ul>
           </div>
         </div>
@@ -365,7 +432,9 @@ function App() {
         {/* แสดงเจ้าหน้าที่ล็อกอินปัจจุบัน */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px' }} className="user-login-info">
           <div style={{ textAlign: 'right' }}>
-            <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '10px' }}>เข้าใช้โดย</span>
+            <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '10px' }}>
+              {isEmbedded || currentUser.source === 'medusa_sso' ? 'MEDUSA AI+ SSO' : 'เข้าใช้โดย'}
+            </span>
             <strong style={{ color: 'var(--text-primary)' }}>{currentUser.name}</strong>
           </div>
           <div style={{ 
@@ -383,18 +452,10 @@ function App() {
         </div>
       </header>
 
-      {dbStatus === 'offline_fallback' && (
-        <div className="glossy-card" style={{ borderLeft: '4px solid var(--warning-color)', padding: '14px 18px', marginBottom: '20px', background: 'rgba(255, 149, 0, 0.06)' }}>
-          <p style={{ color: 'var(--warning-color)', fontWeight: 600, fontSize: '13px' }}>
-            💡 โหมดสำรองออฟไลน์ (Offline BCP Mode): ขณะนี้ระบบทำงานบนฐานข้อมูลในเครื่อง (Local Storage) ข้อมูลถูกบันทึกอย่างปลอดภัย และพร้อมจ่ายยาตามปกติ
-          </p>
-        </div>
-      )}
-
       {dbStatus === 'error' && (
         <div className="glossy-card" style={{ borderLeft: '4px solid var(--danger-color)', padding: '16px', marginBottom: '20px' }}>
           <p style={{ color: 'var(--danger-color)', fontWeight: 600, fontSize: '14px' }}>
-            ⚠️ ไม่สามารถเชื่อมต่อกับ Python Backend ได้ กรุณาตรวจสอบว่าหน้าต่างรันระบบยังเปิดอยู่
+            ⚠️ ไม่สามารถเชื่อมต่อกับ Python Backend หรือฐานข้อมูล HOSxP MySQL ได้ กรุณาตรวจสอบการเชื่อมต่อฐานข้อมูล
           </p>
         </div>
       )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Search, Printer, FileText, Calendar, RefreshCw } from 'lucide-react'
+import { apiUrl } from '../api'
 
 function DocumentArchive({ onSelectPrintSlip }) {
   const [documents, setDocuments] = useState([])
@@ -9,7 +10,7 @@ function DocumentArchive({ onSelectPrintSlip }) {
 
   const fetchDocuments = () => {
     setLoading(true)
-    fetch('/api/documents')
+    fetch(apiUrl('/api/documents'))
       .then(res => res.json())
       .then(data => {
         setDocuments(data)
@@ -27,7 +28,7 @@ function DocumentArchive({ onSelectPrintSlip }) {
 
   // เรียกพิมพ์เอกสารใบนั้นๆ ย้อนหลัง
   const handleOpenPrint = (docRef) => {
-    fetch(`/api/documents/detail?doc_reference=${encodeURIComponent(docRef)}`)
+    fetch(apiUrl(`/api/documents/detail?doc_reference=${encodeURIComponent(docRef)}`))
       .then(res => {
         if (!res.ok) throw new Error("ไม่พบรายละเอียดเอกสารที่สุ่มตรวจ")
         return res.json()

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { User, Users, Cog, Save, RefreshCw, Key, ShieldCheck } from 'lucide-react'
+import { apiUrl } from '../api'
 
 function Settings({ currentUser, onLogout }) {
   const [activeSubMenu, setActiveSubMenu] = useState('profile')
@@ -40,12 +41,12 @@ function Settings({ currentUser, onLogout }) {
 
   // โหลดค่าดั้งเดิมจาก localStorage และดึงรายชื่อเจ้าหน้าที่จากฐาน HOSxP (opduser)
   useEffect(() => {
-    fetch('/api/officers')
+    fetch(apiUrl('/api/officers'))
       .then(res => res.ok ? res.json() : [])
       .then(data => setHosxpOfficers(data))
       .catch(() => {})
 
-    fetch('/api/positions')
+    fetch(apiUrl('/api/positions'))
       .then(res => res.ok ? res.json() : [])
       .then(data => setHosxpPositions(data))
       .catch(() => {})

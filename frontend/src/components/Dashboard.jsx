@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { TrendingUp, FolderCheck, Package, AlertTriangle, Download, RefreshCw } from 'lucide-react'
+import { apiUrl } from '../api'
 
 function Dashboard() {
   const [summary, setSummary] = useState({
@@ -16,13 +17,13 @@ function Dashboard() {
   const fetchDashboardData = () => {
     setLoading(true)
     // ดึงข้อมูล Summary
-    fetch('/api/dashboard/summary')
+    fetch(apiUrl('/api/dashboard/summary'))
       .then(res => res.json())
       .then(data => setSummary(data))
       .catch(err => console.error("Error fetching summary:", err))
 
     // ดึงข้อมูล Stock Movement
-    fetch('/api/reports/stock-card')
+    fetch(apiUrl('/api/reports/stock-card'))
       .then(res => res.json())
       .then(data => {
         setMovements(data)
@@ -42,7 +43,7 @@ function Dashboard() {
 
   const handleSyncDrugPrices = () => {
     setSyncLoading(true)
-    fetch('/api/drugs/sync', { method: 'POST' })
+    fetch(apiUrl('/api/drugs/sync'), { method: 'POST' })
       .then(res => res.json())
       .then(data => {
         alert(`✅ ${data.message} (อัปเดต ${data.updated_count} รายการ)`)
@@ -72,7 +73,7 @@ function Dashboard() {
             <RefreshCw size={15} className={loading ? "spin" : ""} />
             รีเฟรชข้อมูล
           </button>
-          <a href="/api/reports/stock-card/export" download className="btn btn-primary" style={{ textDecoration: 'none' }}>
+          <a href={apiUrl('/api/reports/stock-card/export')} download className="btn btn-primary" style={{ textDecoration: 'none' }}>
             <Download size={15} />
             ส่งออก Stock Card (CSV)
           </a>
